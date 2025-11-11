@@ -1,3 +1,5 @@
+from pathlib import Path
+import re
 import psycopg2
 from psycopg2 import sql
 from dotenv import load_dotenv
@@ -6,6 +8,13 @@ import json
 from app.adapter.gemini import connect_gemini
 from app.adapter.postgresql import connect_postgresql
 from app.adapter.gemini import prompt_insert
+from app.features.mock_data import extract_table_name_from_sql_command, generate_mock_data
+
+sql_files = [
+    "./operational_query/create_masterdata.sql",
+    "./operational_query/create_timeseries_data.sql",
+    "./operational_query/create_transactional_data.sql"
+]
 
 table_schema = """
 CREATE TABLE users (
@@ -30,37 +39,57 @@ CREATE TABLE users (
 
 def main():
     postgresql_cursor, conn = connect_postgresql()
-    gemini_client = connect_gemini()
+    # gemini_client = connect_gemini()
 
 
-    mock_data = generate_mock_data(gemini_client=gemini_client,
-                       table_schema=table_schema,
-                       n=1)
+    # mock_data = generate_mock_data(gemini_client=gemini_client,
+    #                    table_schema=table_schema,
+    #                    n=1)
 
-    print(mock_data)
-def generate_mock_data(gemini_client, table_schema: str, n : int) -> dict:
+    # print(mock_data)
 
-    prompt = f"""
-    You are a data generator. Given this SQL table schema, generate {n} rows of mock data as JSON array.
-    
-    Table Schema:
-    {table_schema}
-    
-    Return output only as JSON array of objects. Do not include any explanations.
+
+
+    # extract_table_name_from_sql_command(gemini_client=gemini_client,
+    #                                     )
+
+    tables = extract_table_names_from_files(file_paths=sql_files)
+
+
+    check_tables_exist(cursor=postgresql_cursor, table_list=tables, schema="happymeal")
+
+
+def check_tables_exist(cursor, table_list, schema):
+    query = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = %s
+        AND table_name = ANY(%s)
     """
-    response = prompt_insert(gemini_client, prompt)
 
-    # Remove any unwanted words (like 'json') if needed
-    response = response.replace("json", "")
-    response = response.replace("```", "")
+    cursor.execute(query, (schema, table_list))
+    existing_tables = [row[0] for row in cursor.fetchall()]
 
-    print("response : ", response)
+    # Find missing tables
+    missing_tables = list(set(table_list) - set(existing_tables))
 
-    # Parse the string as JSON
-    mock_data = json.loads(response)
+    return existing_tables, missing_tables
+
     
-    return mock_data
 
+
+def extract_table_names_from_files(file_paths):
+    table_names = []
+
+    # Regex to match table names in CREATE TABLE statements
+    pattern = re.compile(r"CREATE TABLE\s+([^\s(]+)", re.IGNORECASE)
+
+    for file_path in file_paths:
+        content = Path(file_path).read_text()  # Read file content
+        matches = pattern.findall(content)
+        table_names.extend(matches)
+    
+    return table_names
 
 
 
