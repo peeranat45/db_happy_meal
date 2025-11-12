@@ -10,13 +10,16 @@ def connect_postgresql():
     password = os.getenv("PASSWORD")
     host = os.getenv("HOST")
     port = os.getenv("PORT")
-    user = os.getenv("USER")
-    print(password)
+    user = os.getenv("DB_USER")
+    print("user : ", user)
 
     # Define your connection string
     conn_str = f"postgresql://{user}:{password}@{host}:{port}/postgres"
 
+    print(conn_str)
+
     conn = None
+    cursor = None
     try:
         # Connect to PostgreSQL
         conn = psycopg2.connect(conn_str)
