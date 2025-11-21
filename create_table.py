@@ -1,8 +1,5 @@
 from datetime import date, datetime
 import os
-from tarfile import data_filter
-from tkinter import N
-from sqlalchemy import sql
 from sqlmodel import Boolean, Field, Session, create_engine, select, SQLModel, table
 from dotenv import load_dotenv
 
@@ -133,7 +130,7 @@ class Meals(SQLModel, table=True):
 ## 11
 class MealTypes(SQLModel, table=True):
     __tablename__ = "meal_types"
-
+    id: int | None = Field(default=None, primary_key=True)
     name: str
 
 ## 12
@@ -233,12 +230,12 @@ class ExerciseTypes(SQLModel, table=True):
 ## 20
 class MealPlans(SQLModel, table=True):
     __tablename__ = "meal_plans"
-    
+
     id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str | None = None
     type: int | None = Field(default=None, foreign_key="meal_plan_types.id") 
-    is_public: Boolean = False
+    is_public: bool = False
     liked_count: int = 0
     created_by: int | None = Field(default=None, foreign_key="users.id") 
 
@@ -252,7 +249,7 @@ class MealPlanFoods(SQLModel, table=True):
 ## 22
 class MealPlanTypes(SQLModel, table=True):
     __tablename__ = "meal_plan_types"
-
+    id: int | None = Field(default=None, primary_key=True)
     name: str
 
 ## 23
@@ -279,11 +276,13 @@ class Drinkings(SQLModel, table=True):
 
     value: float
     user_id: int = Field(default=None, foreign_key="users.id")
-    datetime: datetime = datetime.now()
-
+    created_at: datetime = datetime.now()
 
 
 engine = create_engine(os.getenv("DATABASE_URL"), echo=True)
 def init_db() -> None:
     print("init db")
     SQLModel.metadata.create_all(engine)
+
+init_db()
+    
