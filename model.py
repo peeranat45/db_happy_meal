@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/dbname")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1q2w3e4r@db.ujvbyqgnzdkiegkxqkzc.supabase.co:5432/postgres")
 
 
 class Base(DeclarativeBase):

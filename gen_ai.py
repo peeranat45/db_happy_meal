@@ -1,21 +1,25 @@
 import json
+import os
 import time
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from openai import OpenAI
+from dotenv import load_dotenv
 
 # ========== CONFIG ==========
-DB_HOST = "localhost"
-DB_PORT = 5432
-DB_NAME = "appdb"
-DB_USER = "admin"
-DB_PASS = "admin123"
+load_dotenv()  # Load environment variables from .env file
 
-OPENAI_API_KEY = "OPENAPI KEY"
-MODEL_NAME = "gpt-4.1"
-BATCH_FILE = "./data/batch_requests.jsonl"
-OUTPUT_FILE = "./data/batch_output.jsonl"
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = int(os.getenv("DB_PORT", 5432))
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1")
+BATCH_FILE = os.getenv("BATCH_FILE", "./data/batch_requests.jsonl")
+OUTPUT_FILE = os.getenv("OUTPUT_FILE", "./data/batch_output.jsonl")
 # ============================
 
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -43,7 +47,7 @@ def fetch_schema_and_existing_data():
         cur.execute(f"""
             SELECT column_name, data_type
             FROM information_schema.columns
-            WHERE table_name='{table}'
+            WHERE table_name='{table}' AND table_schema='public'
         """)
         schema[table] = cur.fetchall()
 
@@ -60,8 +64,10 @@ def build_prompt(scenario, schema, existing_data):
 You are a database mock data generator AI.
 Generate realistic data for the given scenario.
 
-Goal: Generate new realistic data across ALL related tables.
-Condition: Only Thai People
+Goal: Generate new realistic data across ALL related tables. 
+Condition: Only Thai People, Data range within 1 Jan 2024 until now, Since users created. You must generate transactional data of that users everyday since user created 
+for example if user created data since 1 Oct 2025, You must create meals since 1 Oct 2025 - Now every day. Applied to other transaction data table also
+If there are already data on master data table you can reuse existing data or create new one
 
 ### DATABASE SCHEMA ###
 {json.dumps(schema, indent=2, default=str)}
@@ -84,7 +90,8 @@ Condition: Only Thai People
   ...
 ]
 
-No explanations. Only JSON.
+IMPORTANT: Only include the columns that exist in the schema.  
+Do not add extra fields. Do not include explanations or comments. Output must be valid JSON.
 """
 
 # ---------- Create batch request ----------
@@ -161,6 +168,35 @@ def parse_batch_result():
                 print("Failed to parse JSON:", e)
     return tables_data
 
+TABLE_ORDER = [
+  "users",
+  "diseases",
+  "eating_lifestyle_categories",
+  "social_platforms",
+  "meal_types",
+  "locations",
+  "ingredients",
+  "exercise_types",
+  "meal_plan_types",
+  "channels",
+  "medical_histories",
+  "eating_lifestyles",
+  "user_allergics",
+  "user_social_accounts",
+  "user_statistics",
+  "foods",
+  "food_ingredients",
+  "meals",
+  "food_meals",
+  "favorite_foods",
+  "exercises",
+  "meal_plans",
+  "meal_plan_foods",
+  "favorite_meal_plans",
+  "drinkings"
+]
+
+
 # ---------- Insert generated data ----------
 def insert_generated_data(tables_data):
     conn = psycopg2.connect(
@@ -169,9 +205,12 @@ def insert_generated_data(tables_data):
     )
     cur = conn.cursor()
 
-    for table_obj in tables_data:
-        table_name = table_obj["table"]
-        rows = table_obj["rows"]
+    # Create a dict for faster lookup
+    data_dict = {t["table"]: t["rows"] for t in tables_data}
+
+    # Insert in dependency order
+    for table_name in TABLE_ORDER:
+        rows = data_dict.get(table_name, [])
         if not rows:
             continue
 
@@ -200,7 +239,7 @@ def insert_generated_data(tables_data):
     conn.commit()
     cur.close()
     conn.close()
-    print("Inserted generated data into the database.")
+    print("Inserted generated data into the database in dependency order.")
 
 # ---------- MAIN ----------
 def main():
