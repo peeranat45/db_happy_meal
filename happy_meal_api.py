@@ -1,14 +1,23 @@
+# fastapi dev happy_meal_api.py
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from sqlalchemy import Numeric, func
 
+# # old DB
+# DATABASE_URL = (
+#     "postgresql://postgres.vjxkaznmielcwafxpbfm:1q2w3e4r"
+#     "@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+# )
 
+
+# new DB
 DATABASE_URL = (
-    "postgresql://postgres.vjxkaznmielcwafxpbfm:1q2w3e4r"
-    "@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+    "postgresql://postgres.ujvbyqgnzdkiegkxqkzc:1q2w3e4r"
+    "@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres"
 )
+
 engine = create_engine(DATABASE_URL, echo=True)
 
 # SQLModel table ----------------------------
@@ -27,42 +36,45 @@ class meals(SQLModel, table=True):
 
 class foods(SQLModel, table=True):
     id: int = Field(primary_key=True)
-    food_name: str
-    food_category: str | None = None
+    name: str
+    category: str | None = None
     carb: float
     protein: float
     fat: float
+    sodium: float
+    sugar: float
     kcal: float
+    is_deleted: bool
     created_by: int | None = None
 
 class food_meals(SQLModel, table=True):
     meal_id: int = Field(foreign_key="meals.id", primary_key=True)
     food_id: int = Field(foreign_key="foods.id", primary_key=True)
     price: float | None = None
-    channels_id: int | None = None
+    channel_id: int | None = None
 
 class Locations(SQLModel, table=True):
     __tablename__ = "locations"
 
     id: int = Field(primary_key=True)
     name: str | None = Field(default=None)
-    type: str | None = Field(default=None)
+    location_type: str | None = Field(default=None)
 
 class Exercise(SQLModel, table=True):
-    __tablename__ = "excercise"  # make sure name matches your database
+    __tablename__ = "exercises"  # make sure name matches your database
 
     id: int | None = Field(default=None, primary_key=True)
     name: str | None = Field(default=None)
     user_id: int | None = Field(default=None)
-    excercise_type_id: int | None = Field(default=None)
-    date_time: datetime | None = Field(default=None)
+    exercise_type_id: int | None = Field(default=None)
+    datetime: datetime | None
     location: str | None = Field(default=None)
     calories: float | None = Field(default=None)
     avg_heart_rate: int | None = Field(default=None)
     duration: int | None = Field(default=None)
 
 class ExerciseType(SQLModel, table=True):
-    __tablename__ = "excercise_types"
+    __tablename__ = "exercise_types"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str | None = Field(default=None)
@@ -87,26 +99,29 @@ class NutrientSummary(BaseModel):
 class ExerciseCreate(BaseModel):
     name: str | None = None
     user_id: int | None = None
-    excercise_type_id: int | None = None
-    date_time: datetime | None = None
+    exercise_type_id: int | None = None
+    datetime: datetime | None
     location: str | None = None
     calories: float | None = None
     avg_heart_rate: int | None = None
     duration: int | None = None
 
 class FoodCreate(BaseModel):
-    food_name: str
-    food_category: str | None = None
+    name: str
+    category: str | None = None
     carb: float
     protein: float
     fat: float
+    sodium: float
+    sugar: float
     kcal: float
-    create_by: int | None = None
+    is_deleted: bool
+    created_by: int | None = None
 
 class MealCreate(BaseModel):
     meal_id: int | None = None
     food_id: int | None = None
-    channels_id: int | None = None
+    channel_id: int | None = None
     price: int | None = None
 
 app = FastAPI()
@@ -122,11 +137,11 @@ def get_exercises(user_id: int = Query(...), selected_date: datetime = Query(...
         # Join ExerciseType to get exercise_type name
         statement = (
             select(Exercise, ExerciseType.name, Locations.name)
-            .join(ExerciseType, Exercise.excercise_type_id == ExerciseType.id)
+            .join(ExerciseType, Exercise.exercise_type_id == ExerciseType.id)
             .join(Locations, Exercise.location == Locations.id)
             .where(Exercise.user_id == user_id)
-            .where(Exercise.date_time >= start_datetime)
-            .where(Exercise.date_time <= end_datetime)
+            .where(Exercise.datetime >= start_datetime)
+            .where(Exercise.datetime <= end_datetime)
         )
 
         results = session.exec(statement).all()
@@ -145,7 +160,7 @@ def get_exercises(user_id: int = Query(...), selected_date: datetime = Query(...
                 "duration": exercise.duration,
                 "calories": exercise.calories,
                 "avg_hr": exercise.avg_heart_rate,
-                "date_time": exercise.date_time
+                "date_time": exercise.datetime
             }
             for exercise, exercise_type_name, locations_name in results
         ]
@@ -179,8 +194,8 @@ async def get_meals(user_id: int, selected_date: datetime):
                 meals.name.label("meal_name"),
                 meals.created_at,
                 foods.id.label("food_id"),
-                foods.food_name,
-                foods.food_category,
+                foods.name,
+                foods.category,
                 foods.carb,
                 foods.protein,
                 foods.fat,
@@ -193,7 +208,7 @@ async def get_meals(user_id: int, selected_date: datetime):
             .where(meals.created_by == user_id)
             .where(meals.created_at >= start)
             .where(meals.created_at <= end)
-            .order_by(meals.created_at.asc(), foods.food_name.asc())
+            .order_by(meals.created_at.asc(), foods.name.asc())
         )
 
         result = session.exec(stmt).all()
