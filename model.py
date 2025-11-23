@@ -5,6 +5,7 @@ import os
 from typing import Optional
 
 from sqlalchemy import (
+    Enum,
     Integer,
     String,
     Float,
@@ -16,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1q2w3e4r@db.ujvbyqgnzdkiegkxqkzc.supabase.co:5432/postgres")
+DATABASE_URL = "postgresql://postgres.ujvbyqgnzdkiegkxqkzc:1q2w3e4r@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres"
 
 
 class Base(DeclarativeBase):
@@ -42,7 +43,7 @@ class Users(Base):
     pin: Mapped[str] = mapped_column(String, nullable=False)
     is_pin_lock: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     pin_lock_datetime: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    occupation: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    occupation_id: Mapped[int] = mapped_column(Integer, ForeignKey("occupations.id"), nullable=True)
     income_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     companay_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
@@ -63,7 +64,14 @@ class Users(Base):
     max_sugar: Mapped[float] = mapped_column(Float, nullable=False)
     min_sodium: Mapped[float] = mapped_column(Float, nullable=False)
     max_sodium: Mapped[float] = mapped_column(Float, nullable=False)
+    
+# 1.1 Occupation 
+class Occupations(Base):
 
+    __tablename__ = "occupations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
 # 2 MedicalHistories
 class MedicalHistories(Base):
@@ -168,7 +176,8 @@ class Locations(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    location_type: Mapped[str] = mapped_column(String, nullable=False)
+    location_type: Mapped[str] = mapped_column(
+        String, nullable=False)
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     long: Mapped[float] = mapped_column(Float, nullable=False)
 
@@ -207,8 +216,8 @@ class Foods(Base):
     kcal: Mapped[float] = mapped_column(Float, nullable=False)
 
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=True)
 
 
 # 16 Ingredients
@@ -314,5 +323,5 @@ class Drinkings(Base):
 
 
 # --- Engine and Session ---
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

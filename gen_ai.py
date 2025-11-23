@@ -51,7 +51,7 @@ def fetch_schema_and_existing_data():
         """)
         schema[table] = cur.fetchall()
 
-        cur.execute(f"SELECT * FROM {table} LIMIT 20")
+        cur.execute(f"SELECT * FROM {table}")
         existing_data[table] = cur.fetchall()
 
     cur.close()
@@ -206,6 +206,7 @@ def insert_generated_data(tables_data):
     cur = conn.cursor()
 
     # Create a dict for faster lookup
+    print(f"tables_data xxxxxx = {tables_data}")
     data_dict = {t["table"]: t["rows"] for t in tables_data}
 
     # Insert in dependency order
@@ -243,18 +244,18 @@ def insert_generated_data(tables_data):
 
 # ---------- MAIN ----------
 def main():
-    print("Reading DB schema + data...")
-    schema, existing_data = fetch_schema_and_existing_data()
+    # print("Reading DB schema + data...")
+    # schema, existing_data = fetch_schema_and_existing_data()
 
-    print("\nEnter your scenario:")
-    scenario = input("> ")
+    # print("\nEnter your scenario:")
+    # scenario = input("> ")
 
-    prompt = build_prompt(scenario, schema, existing_data)
-    create_batch_request_file(prompt)
+    # prompt = build_prompt(scenario, schema, existing_data)
+    # create_batch_request_file(prompt)
 
-    batch_id = submit_batch()
-    output_file_id = wait_for_batch(batch_id)
-    download_output(output_file_id)
+    # batch_id = submit_batch()
+    # output_file_id = wait_for_batch(batch_id)
+    # download_output(output_file_id)
 
     tables_data = parse_batch_result()
     print("\n=== GENERATED TABLE DATA ===")
