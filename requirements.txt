@@ -7,3 +7,4 @@ alembic
 pydantic
 google-generativeai
 faker
+openai
